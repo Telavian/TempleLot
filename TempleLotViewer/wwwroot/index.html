@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" style="height: 100%; width: 100%;">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Temple Lot Viewer</title>
+    <base href="/" />
+    <!--<base href="https://templelot.uncorrelatedmormonism.com/" />-->
+
+    <meta property="og:title" content="Temple Lot Viewer" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Provides access to Temple Lot records" />
+    <meta property="og:url" content="https://templelot.uncorrelatedmormonism.com/" />
+    <meta property="og:image" content="https://templelot.uncorrelatedmormonism.com/TempleLot.png" />
+
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="TempleLotViewer.styles.css" rel="stylesheet" />
+
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <script src="/scripts/DisplayPage.js"></script>
+</head>
+
+<body style="height: 100%; width: 100%;">
+    <div id="app" style="height: 100%; width: 100%;">
+        <div style="display: grid; grid-template-columns: 1fr auto auto 1fr; grid-template-rows: 1fr 300px 1fr; height: 100%; width: 100%;">
+            <img style="grid-row: 2; grid-column: 2; box-shadow: 1px 1px 3px 1px #333; border-radius: 15%;" height="300" width="300" src="TempleLot.png" />
+
+            <div style="grid-row: 2; grid-column: 3; margin-left: 25px;">
+                <div style="display: grid; grid-template-rows: 1fr auto auto auto 1fr; vertical-align: middle; height: 300px;">
+                    <h1 style="grid-row: 2; margin-bottom: 0px !important;">
+                        Loading application...
+                    </h1>
+
+                    <div id="progressbar" style="grid-row: 3; width: 10%; height: 2em; margin-top: 0px !important; background-color: #4b6482;" class="progress mt-2 progress-bar progress-bar-striped progress-bar-animated" />
+                </div>
+                <span id="progressLabel" style="grid-row: 4" class="text-muted">Downloading file list</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+
+    <script>
+        window.getUserAgent = () => {
+            return navigator.userAgent;
+        };
+    </script>
+
+    <script type="module">
+        import { BrotliDecode } from './scripts/decode.min.js';
+        let totalCount = 0;
+        let loadedCount = 0;
+
+        function UpdateProgressBar() {
+            var percent = (loadedCount / totalCount) * 100;
+            var progressbar = document.getElementById('progressbar');
+            var progressLabel = document.getElementById('progressLabel');
+
+            progressbar.style.width = percent + '%';
+            progressLabel.innerText = `Downloading ${loadedCount}/${totalCount}`;
+        }
+
+        async function fetchAndRetry(uri, options, maxAmountOfRetries) {
+            let error;
+
+            for (let retries = 0; retries < maxAmountOfRetries; retries++) {
+                try {
+                    return await fetch(uri, options);
+                } catch (err) {
+                    error = err;
+                }
+            }
+
+            throw error;
+        }
+
+        Blazor.start({
+            loadBootResource: function (type, name, defaultUri, integrity) {
+                if (type == "dotnetjs")
+                    return defaultUri;
+
+                totalCount += 1;
+                UpdateProgressBar();
+
+                if (location.hostname === "localhost") {
+                    return (async function () {
+                        var fetchResult = await fetchAndRetry(defaultUri, {
+                            cache: 'no-cache',
+                            integrity: integrity
+                        }, 3);
+
+                        loadedCount += 1;
+                        UpdateProgressBar();
+                        return fetchResult;
+                    })();
+                }
+                else {
+                    return (async function () {
+                        const response = await fetchAndRetry(defaultUri + '.br', { cache: 'no-cache' }, 3);
+
+                        if (response.ok === false) {
+                            throw new Error(response.statusText);
+                        }
+
+                        const originalResponseBuffer = await response.arrayBuffer();
+                        const originalResponseArray = new Int8Array(originalResponseBuffer);
+                        const decompressedResponseArray = BrotliDecode(originalResponseArray);
+                        const contentType = type === 'dotnetwasm'
+                            ? 'application/wasm'
+                            : 'application/octet-stream';
+
+                        loadedCount += 1;
+                        UpdateProgressBar();
+                        return new Response(decompressedResponseArray,
+                            { headers: { 'content-type': contentType } });
+                    })();
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

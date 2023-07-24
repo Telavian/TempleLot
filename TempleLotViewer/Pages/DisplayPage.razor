@@ -1,0 +1,172 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components
+@using MudBlazor
+@using TempleLotViewer.Search
+@using TempleLotViewer.Services.WitnessSearch.Models
+
+@inherits DisplayPageBase
+
+<div style="display: grid; grid-template-rows: auto 1fr; grid-template-columns: auto 1fr; height: 100%; width: 100%; overflow: hidden;">
+    <div style="grid-row: 1; grid-column: 1 / span 2; width: 100%;">
+        <MudAppBar Fixed="true">
+            <b>Temple Lot Viewer</b>
+            <MudSpacer />
+            
+                <MudToggleIconButton @bind-Toggled="@IsObjectionsHidden"
+                                     Icon="@Icons.Material.Filled.Work" Color="@Color.Error" Title="Objections hidden"
+                                     ToggledIcon="@Icons.Material.Filled.WorkOff" ToggledColor="@Color.Success" ToggledTitle="Objections shown"/>
+
+            <span>
+                Objections @(IsObjectionsHidden ? "hidden" : "shown")
+            </span>
+
+            <MudTooltip>
+                <ChildContent>
+                    <MudIconButton Icon="@Icons.Material.Filled.Code" Color="Color.Inherit" Href="https://github.com/Telavian/TempleLot"
+                                   Edge="Edge.Start" Style="margin-left: 15px" />
+                </ChildContent>
+
+                <TooltipContent>
+                    <div>Show github repository</div>
+                </TooltipContent>
+            </MudTooltip>
+        </MudAppBar>
+    </div>
+
+    <div style="grid-row: 2; grid-column: 1; overflow: auto; min-height: 100%;">
+        <MudPaper Elevation="5" Outlined="true" Square="true" Style="width: 400px; min-height: 100%; background-color: #DEDEDE; display: inline-block;">
+            <MudTabs Elevation="4" Rounded="true" Centered="true" ApplyEffectsToContainer="true"
+                     Color="Color.Info">
+                <MudTabPanel Text="Witnesses">
+                    <div style="grid-row: 2; grid-column: 2; overflow: auto;">
+                        <MudNavMenu Bordered="true" Rounded="true">
+                            <MudText Typo="Typo.h6">Witnesses</MudText>
+                            <MudDivider />
+
+                            <div style="margin-left: 5px; margin-right: 5px;">
+                                <MudTextField Variant="Variant.Outlined" Immediate="true" Clearable="true"
+                                              Label="Filter" DebounceInterval="25" Adornment="Adornment.End"
+                                              AdornmentIcon="@Icons.Material.Rounded.FilterList" AdornmentColor="Color.Info"
+                                              Class="sidemenu"
+                                              @bind-Value="WitnessFilterText" />
+                            </div>
+
+                            @{
+                                foreach (var item in FilteredWitnesses)
+                                {
+                                    var selectedStyle = item == SelectedWitness
+                                        ? "color: green; font-size: 18px;"
+                                        : "";
+
+                                    <MudNavLink
+                                        OnClick="@(() => WitnessContentSelectedAsyncCommand!(item))">
+                                        <div style="font-size: 16px; @selectedStyle">
+                                            @(item.WitnessNumber) - @CleanMenuName(item.Name)
+                                        </div>
+                                    </MudNavLink>
+                                    continue;
+                                }
+                            }
+                        </MudNavMenu>
+                    </div>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Search">
+                    <MudNavMenu Bordered="true" Rounded="true">
+                        <MudText Typo="Typo.h6">Search</MudText>
+                        <MudDivider />
+
+                        @if (IsSearchInitializing)
+                        {
+                            <div style="display: flex; align-items: center; justify-content: center; margin-top: 25px;">
+                                <h5>Initializing Search</h5>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: center; margin-left: 15px; margin-right: 15px;">
+                                <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="display: grid; grid-template-columns: 1fr auto">
+                                <div style="grid-column: 1; margin-left: 5px; margin-right: 5px;">
+                                    <MudTextField Variant="Variant.Outlined" Immediate="true"
+                                              Label="Search" Clearable="true"
+                                              OnKeyPress="@(e => HandleSearchKeypressAsyncCommand!(e))"
+                                              Class="sidemenu clearable-text-field"
+                                              @bind-Value="SearchText" />
+                                </div>
+
+                                <div style="grid-column: 2; margin-left: -50px; margin-top: 12px;">
+                                    <MudTooltip Delay="1000" Placement="Placement.Right">
+                                        <ChildContent>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Search" Variant="Variant.Filled"
+                                                       Color="Color.Primary" Size="Size.Large"
+                                                       OnClick="@(() => SearchAsyncCommand!())" />
+                                        </ChildContent>
+                                    </MudTooltip>
+                                </div>
+                            </div>
+
+                            if (IsSearchBusy)
+                            {
+                                <div style="display: flex; align-items: center; justify-content: center; margin-top: 25px;">
+                                    <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+                                </div>
+                            }
+                            else if (SearchResults != null && SearchResults.MatchMode == SearchMatchMode.NoMatches)
+                            {
+                                <h4 style="display: flex; align-items: center; justify-content: center; margin-top: 25px; height: 100%;">
+                                    No matches found
+                                </h4>
+                            }
+                            else if (SearchResults != null && SearchResults.MatchMode == SearchMatchMode.SearchMatches)
+                            {
+                                var groups = (SearchResults?.AllMatches ?? Array.Empty<SearchMatch>())
+                                    .GroupBy(x => x.WitnessNumber)
+                                    .OrderByDescending(x => x.Average(y => y.Score));
+
+                                foreach (var group in groups)
+                                {
+                                    var groupName = GetWitnessByNumber(group.Key).Name;
+
+                                    var groupItems = group
+                                        .OrderByDescending(x => x.Score);
+
+                                    <div style="font-size: 16px; font-weight: bold;">
+                                        <MudNavGroup Title="@($"{groupName} ({group.Count():N0})")">
+                                            @foreach (var groupItem in groupItems)
+                                            {
+                                                var selectedStyle = groupItem == SelectedSearchMatch
+                                                    ? "color: green; font-size: 18px;"
+                                                    : "";
+
+                                                <MudNavLink OnClick="@(() => SearchMatchSelectedAsyncCommand!(groupItem))">
+                                                    <div style="display: grid; grid-template-rows: auto auto;">
+                                                        <div style="grid-row: 1; font-size: 10px;">@($"{groupName} - Q:{groupItem.Question}")</div>
+                                                        <div style="grid-row: 2; margin-left: 15px; font-size: 16px; @selectedStyle">
+                                                            @((MarkupString)groupItem.FormattedText)
+                                                        </div>
+                                                    </div>
+                                                </MudNavLink>
+                                            }
+
+                                        </MudNavGroup>
+                                    </div>
+                                }
+                            }
+                        }
+                    </MudNavMenu>
+                </MudTabPanel>
+            </MudTabs>
+        </MudPaper>
+    </div>
+
+    <div style="grid-row: 2; grid-column: 2; overflow: hidden;">
+        @{
+            var fullPageLink = SelectedWitness?.HtmlPath;
+        }
+
+        <iframe id="pageFrame" src="@fullPageLink" style="width: 100%; height: 100%"
+                @onload="@(() => InitializePageFrameAsyncCommand!())"></iframe>
+    </div>
+</div>

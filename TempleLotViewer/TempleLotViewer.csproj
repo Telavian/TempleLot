@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TempleLotViewer</RootNamespace>
+    <AssemblyNamespace>TempleLotViewer</AssemblyNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Remove="NuGet.Config" />
+    <Content Remove="wwwroot\Witnesses\FullIndex.bin" />
+    <Content Remove="wwwroot\Witnesses\witnesses.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove=".Clean.cmd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\Witnesses\FullIndex.bin" />
+    <EmbeddedResource Include="wwwroot\Witnesses\witnesses.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="7.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.9" PrivateAssets="all" />
+    <PackageReference Include="MudBlazor" Version="6.7.0" />
+    <PackageReference Include="Lucene.Net" Version="4.8.0-beta00016" />
+    <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00016" />
+    <PackageReference Include="Lucene.Net.Queries" Version="4.8.0-beta00016" />
+    <PackageReference Include="Lucene.Net.QueryParser" Version="4.8.0-beta00016" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\images\" />
+  </ItemGroup>
+
+</Project>
